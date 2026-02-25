@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      AI_ANALYZER_CORS_ALLOW_ORIGIN: "http://localhost:3000"
+      AI_ANALYZER_MAX_UPLOAD_SIZE_MB: 10
+      AI_ANALYZER_ENABLE_PDF_OUTPUT: "false"
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000"
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
