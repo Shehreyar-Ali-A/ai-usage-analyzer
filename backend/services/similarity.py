@@ -30,15 +30,22 @@ def _lexical_overlap_matrix(texts_a: List[str], texts_b: List[str]) -> np.ndarra
     X = vectorizer.fit_transform(combined)
     A = X[: len(texts_a)]
     B = X[len(texts_a) :]
-    # Jaccard similarity approximation using intersection over union
-    intersection = A @ B.T
-    A_sum = A.sum(axis=1)
-    B_sum = B.sum(axis=1)
+    # Jaccard similarity approximation using intersection over union.
+    # Work in dense float arrays to avoid type issues with sparse matrices.
+    intersection = (A @ B.T).toarray().astype(float)
+    A_sum = np.asarray(A.sum(axis=1)).astype(float)
+    B_sum = np.asarray(B.sum(axis=1)).astype(float)
     union = A_sum + B_sum.T - intersection
+
+    # Safe division: where union is zero, Jaccard should be zero.
     with np.errstate(divide="ignore", invalid="ignore"):
-        jaccard = intersection / union
-        jaccard[np.isnan(jaccard)] = 0.0
-    return jaccard.A
+        jaccard = np.divide(
+            intersection,
+            union,
+            out=np.zeros_like(intersection, dtype=float),
+            where=union != 0,
+        )
+    return jaccard
 
 
 def compute_similarity(

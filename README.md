@@ -13,7 +13,8 @@ Run locally:
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8888
+
 ```
 
 ### Frontend (Next.js)
@@ -26,10 +27,10 @@ Run locally:
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev -- --port 3333
 ```
 
-By default the frontend expects the API at `http://localhost:8000` (configurable via `NEXT_PUBLIC_API_BASE_URL`).
+By default the frontend expects the API at `http://localhost:8888` (configurable via `NEXT_PUBLIC_API_BASE_URL`).
 
 ### Docker (stateless deployment)
 
@@ -39,5 +40,4 @@ Use Docker Compose to run both services:
 docker-compose up --build
 ```
 
-Then open `http://localhost:3000` to use the app.
-
+Then open `http://localhost:3333` to use the app.

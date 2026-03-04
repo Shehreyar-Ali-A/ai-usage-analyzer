@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     enable_pdf_output: bool = False
     similarity_top_k: int = 5
     similarity_threshold: float = 0.6
-    cors_allow_origin: str = "http://localhost:3000"
+    cors_allow_origin: str = "http://localhost:3333"
 
     class Config:
         env_prefix = "AI_ANALYZER_"

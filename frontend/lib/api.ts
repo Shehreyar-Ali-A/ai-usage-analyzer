@@ -22,7 +22,7 @@ export type AnalyzeResponse = {
   pdf_base64?: string | null;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8888";
 
 export async function analyzeAssignment(params: {
   assignmentFile: File;
