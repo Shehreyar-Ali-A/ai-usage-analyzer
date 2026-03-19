@@ -9,6 +9,7 @@ services:
       AI_ANALYZER_CORS_ALLOW_ORIGIN: "http://localhost:3333"
       AI_ANALYZER_MAX_UPLOAD_SIZE_MB: 10
       AI_ANALYZER_ENABLE_PDF_OUTPUT: "false"
+      AI_ANALYZER_OPENAI_API_KEY: "${AI_ANALYZER_OPENAI_API_KEY}"
     ports:
       - "8888:8888"
 

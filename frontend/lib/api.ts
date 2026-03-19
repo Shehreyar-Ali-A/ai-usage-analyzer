@@ -4,6 +4,16 @@ export type AnalyzeEvidenceItem = {
   ai_excerpt: string;
   assignment_excerpt: string;
   similarity: number;
+  semantic_score?: number;
+  lexical_score?: number;
+  relation_type?: string | null;
+};
+
+export type FactorBreakdown = {
+  name: string;
+  weight: number;
+  score: number;
+  explanation: string;
 };
 
 export type AnalyzeReport = {
@@ -14,6 +24,13 @@ export type AnalyzeReport = {
   evidence: AnalyzeEvidenceItem[];
   observations: string[];
   confidence: "Low" | "Medium" | "High";
+
+  prompt_intent_summary?: string | null;
+  transformation_findings?: string[];
+  factor_breakdown?: FactorBreakdown[];
+  increasing_factors?: string[];
+  decreasing_factors?: string[];
+  caveats?: string[];
 };
 
 export type AnalyzeResponse = {
@@ -53,4 +70,3 @@ export async function analyzeAssignment(params: {
   const data = (await res.json()) as AnalyzeResponse;
   return data;
 }
-

@@ -193,3 +193,66 @@ a {
   cursor: not-allowed;
 }
 
+.factor-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.factor-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 48px 100px;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.factor-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.factor-bar-container {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background-color: #111827;
+  overflow: hidden;
+}
+
+.factor-bar {
+  height: 100%;
+  background: linear-gradient(to right, #6366f1, #818cf8);
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.factor-score {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.factor-weight {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.score-detail {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.relation-chip {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+  background-color: #111827;
+}
+
+.caveats {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #9ca3af;
+}
+
