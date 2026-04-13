@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { submitWorkspace } from "../lib/api";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { submitWorkspace, getSubmission } from "../lib/api";
 import type { Submission, UploadedFile, Workspace } from "../lib/types";
 
 interface Props {
@@ -11,14 +12,57 @@ interface Props {
   onSubmit: () => void;
 }
 
-export default function SubmissionPanel({ workspace, files, submission, onSubmit }: Props) {
+export default function SubmissionPanel({ workspace, files, submission: initialSubmission, onSubmit }: Props) {
+  const router = useRouter();
   const [primaryFileId, setPrimaryFileId] = useState("");
   const [supportingIds, setSupportingIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [submission, setSubmission] = useState<Submission | null>(initialSubmission);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    setSubmission(initialSubmission);
+  }, [initialSubmission]);
+
+  // Poll for status updates while analyzing
+  useEffect(() => {
+    const shouldPoll = submission &&
+      (submission.status === "submitted" || submission.status === "analyzing");
+
+    if (!shouldPoll) {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      return;
+    }
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const updated = await getSubmission(workspace.id);
+        setSubmission(updated);
+        if (updated.status === "completed" || updated.status === "failed") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 3000);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [submission?.status, workspace.id]);
 
   if (submission) {
     const primaryFile = files.find((f) => f.id === submission.primary_file_id);
+    const isAnalyzing = submission.status === "submitted" || submission.status === "analyzing";
+
     return (
       <div className="rounded-lg border border-green-200 bg-green-50 p-4">
         <div className="flex items-center gap-2 mb-2">
@@ -31,21 +75,31 @@ export default function SubmissionPanel({ workspace, files, submission, onSubmit
           Primary file: {primaryFile?.original_filename || "Unknown"}
         </p>
         <p className="text-sm text-green-800">
-          Status: <span className="font-medium">{submission.status}</span>
+          Status: <span className="font-medium capitalize">{submission.status}</span>
         </p>
+
+        {isAnalyzing && (
+          <div className="mt-3 flex items-center gap-2">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
+            <p className="text-sm text-green-700">
+              Analysis in progress... This may take a minute.
+            </p>
+          </div>
+        )}
+
         {submission.status === "completed" && (
-          <a
-            href={`/workspaces/${workspace.id}/report`}
-            className="mt-3 inline-block rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+          <button
+            onClick={() => router.push(`/workspaces/${workspace.id}/report`)}
+            className="mt-3 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
-            View Report
-          </a>
+            View Analysis Report
+          </button>
         )}
-        {submission.status === "analyzing" && (
-          <p className="mt-2 text-sm text-green-700 italic">Analysis in progress...</p>
-        )}
+
         {submission.status === "failed" && (
-          <p className="mt-2 text-sm text-red-600">Analysis failed. Please contact support.</p>
+          <p className="mt-2 text-sm text-red-600">
+            Analysis failed. Please try creating a new workspace and re-submitting.
+          </p>
         )}
       </div>
     );
@@ -59,7 +113,6 @@ export default function SubmissionPanel({ workspace, files, submission, onSubmit
     );
   }
 
-  const eligibleFiles = files.filter((f) => f.file_role !== "context");
   const allFiles = files;
 
   const toggleSupporting = (id: string) => {
@@ -76,11 +129,12 @@ export default function SubmissionPanel({ workspace, files, submission, onSubmit
     setError("");
     setSubmitting(true);
     try {
-      await submitWorkspace(
+      const sub = await submitWorkspace(
         workspace.id,
         primaryFileId,
         supportingIds.filter((id) => id !== primaryFileId),
       );
+      setSubmission(sub);
       onSubmit();
     } catch (e: any) {
       setError(e.message || "Submission failed");

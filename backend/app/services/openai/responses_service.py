@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import AsyncGenerator
 
 from app.core.config import get_settings
 from app.services.openai.client import get_openai_client

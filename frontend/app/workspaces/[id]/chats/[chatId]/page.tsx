@@ -6,6 +6,9 @@ import { getChat, sendMessageStream, updateChat, getWorkspace } from "../../../.
 import type { ChatWithMessages, Message, Workspace } from "../../../../../lib/types";
 import MessageBubble from "../../../../../components/MessageBubble";
 
+const TOKEN_FLUSH_INTERVAL_MS = 30;
+const MAX_CHARS_PER_TICK = 2;
+
 export default function ChatPage() {
   const params = useParams();
   const workspaceId = params.id as string;
@@ -20,6 +23,57 @@ export default function ChatPage() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Token queue for smooth typewriter effect
+  const tokenQueueRef = useRef<string[]>([]);
+  const pendingFinalMsgRef = useRef<Message | null>(null);
+  const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const displayedRef = useRef("");
+
+  const startFlushing = useCallback(() => {
+    if (flushTimerRef.current) return;
+    displayedRef.current = "";
+    setStreamingText("");
+
+    flushTimerRef.current = setInterval(() => {
+      const queue = tokenQueueRef.current;
+
+      if (queue.length === 0) {
+        // Queue drained -- if final message is ready, swap to real message
+        if (pendingFinalMsgRef.current) {
+          const msg = pendingFinalMsgRef.current;
+          pendingFinalMsgRef.current = null;
+          stopFlushing();
+          setStreamingText("");
+          displayedRef.current = "";
+          setMessages((prev) => [...prev, msg]);
+        }
+        return;
+      }
+
+      // Adaptive: flush more chars per tick if queue is backing up
+      const backlog = queue.length;
+      const charsThisTick = backlog > 120 ? Math.min(backlog, 8) :
+                            backlog > 60 ? 4 :
+                            MAX_CHARS_PER_TICK;
+
+      const chunk = queue.splice(0, charsThisTick).join("");
+      displayedRef.current += chunk;
+      setStreamingText(displayedRef.current);
+    }, TOKEN_FLUSH_INTERVAL_MS);
+  }, []);
+
+  const stopFlushing = useCallback(() => {
+    if (flushTimerRef.current) {
+      clearInterval(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => stopFlushing();
+  }, [stopFlushing]);
 
   const loadChat = async () => {
     try {
@@ -50,23 +104,48 @@ export default function ChatPage() {
     setInput("");
     setSending(true);
     setStreamingText("");
+    tokenQueueRef.current = [];
+    pendingFinalMsgRef.current = null;
+    displayedRef.current = "";
+
+    const optimisticId = `temp-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: optimisticId,
+        chat_id: chatId,
+        role: "user",
+        content_text: content,
+        sequence_number: prev.length + 1,
+        openai_response_id: null,
+        metadata_jsonb: null,
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
     try {
       await sendMessageStream(chatId, content, {
         onUserMessage(msg) {
           setMessages((prev) => {
-            const filtered = prev.filter((m) => !m.id.startsWith("temp-"));
+            const filtered = prev.filter((m) => m.id !== optimisticId);
             return [...filtered, msg];
           });
+          startFlushing();
         },
         onDelta(text) {
-          setStreamingText((prev) => prev + text);
+          // Push individual characters into the queue for smooth draining
+          for (const ch of text) {
+            tokenQueueRef.current.push(ch);
+          }
         },
         onAssistantMessage(msg) {
-          setStreamingText("");
-          setMessages((prev) => [...prev, msg]);
+          // Don't swap immediately -- let the queue drain first
+          pendingFinalMsgRef.current = msg;
         },
         onError(text) {
+          stopFlushing();
+          tokenQueueRef.current = [];
+          displayedRef.current = "";
           setStreamingText("");
           setMessages((prev) => [
             ...prev,
@@ -85,6 +164,9 @@ export default function ChatPage() {
         onDone() {},
       });
     } catch (e: any) {
+      stopFlushing();
+      tokenQueueRef.current = [];
+      displayedRef.current = "";
       setStreamingText("");
       setMessages((prev) => [
         ...prev,
@@ -101,9 +183,8 @@ export default function ChatPage() {
       ]);
     } finally {
       setSending(false);
-      setStreamingText("");
     }
-  }, [input, sending, chatId]);
+  }, [input, sending, chatId, startFlushing, stopFlushing]);
 
   const handleTitleSave = async () => {
     if (!titleDraft.trim() || titleDraft === chat?.title) {
